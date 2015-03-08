@@ -156,7 +156,6 @@ CommandParse:
 	for {
 		bytesRead, err := readCommand(conn, rawData)
 		if err != nil {
-			fmt.Println(err)
 			break
 		}
 		output.Write(rawData[:bytesRead])
@@ -183,13 +182,20 @@ CommandParse:
 			}
 		}
 	}
-	output.Close()
 	output.Sync()
 
-	messageName := fmt.Sprintf(messageNameFormat, fromAddr, toAddr, time.Now().Unix())
-	err = copyFileContents(output.Name(), messageName)
+	stats, err := output.Stat()
+	output.Close()
 	if err != nil {
 		fmt.Println(err)
+		return
+	}
+	if stats.Size() > 0 {
+		messageName := fmt.Sprintf(messageNameFormat, fromAddr, toAddr, time.Now().Unix())
+		err = copyFileContents(output.Name(), messageName)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 }
 
