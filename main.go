@@ -98,13 +98,15 @@ func replyCommand(conn net.Conn, line string) Command {
 	return cmd
 }
 
+var defaultAddr = "invalid@addr"
+
 func sanitizeAddr(dirty string) string {
 	re := regexp.MustCompile("(MAIL|RCPT) (FROM|TO):.*<([a-zA-Z0-9.-_@]+)>")
 	subs := re.FindAllStringSubmatch(dirty, 1)
-	if subs != nil && len(subs) > 0 && len(subs[0]) == 4 {
+	if subs != nil && len(subs) > 0 && len(subs[0]) == 4 && len(subs[0][3]) > 0 {
 		return subs[0][3]
 	} else {
-		return "invalid@addr"
+		return defaultAddr
 	}
 }
 
@@ -138,8 +140,8 @@ func handleConn(conn net.Conn) {
 		return
 	}
 
-	var fromAddr string
-	var toAddr string
+	var fromAddr = defaultAddr
+	var toAddr = defaultAddr
 
 	_, err = conn.Write([]byte("220 mail.lf.lc ESMTP dumptruck\n"))
 	if err != nil {
