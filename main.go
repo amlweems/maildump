@@ -109,16 +109,22 @@ func sanitizeAddr(dirty string) string {
 }
 
 func copyFileContents(src, dst string) error {
-    in, err := os.Open(src)
-    if err != nil { return err }
-    defer in.Close()
-    out, err := os.Create(dst)
-    if err != nil { return err }
-    defer out.Close()
-    _, err = io.Copy(out, in)
-    cerr := out.Close()
-    if err != nil { return err }
-    return cerr
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	cerr := out.Close()
+	if err != nil {
+		return err
+	}
+	return cerr
 }
 
 var messageNameFormat = "/srv/http/maildump/%s->%s-%v.txt"
@@ -143,7 +149,7 @@ func handleConn(conn net.Conn) {
 
 	rawData := make([]byte, 1024)
 	readingData := false
-	
+
 CommandParse:
 	for {
 		bytesRead, err := readCommand(conn, rawData)
@@ -177,7 +183,7 @@ CommandParse:
 	}
 	output.Close()
 	output.Sync()
-	
+
 	messageName := fmt.Sprintf(messageNameFormat, fromAddr, toAddr, time.Now().Unix())
 	err = copyFileContents(output.Name(), messageName)
 	if err != nil {
