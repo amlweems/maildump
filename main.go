@@ -5,7 +5,6 @@ import "fmt"
 import "log"
 import "strings"
 import "regexp"
-import "io"
 import "io/ioutil"
 import "os"
 import "time"
@@ -98,41 +97,47 @@ func replyCommand(conn net.Conn, line string) Command {
 	return cmd
 }
 
+func toIPAddress(addr net.Addr) string {
+	ipAddress := strings.Split(addr.String(), ":")
+	return ipAddress[0]
+}
+
+var serverBlocklist = []string{".zen.spamhaus.org", ".bl.spamcop.net"}
+
+func isSpammerAddr(addr net.Addr) bool {
+	ipAddress := toIPAddress(addr)
+	for _, server := range serverBlocklist {
+		_, err := net.LookupHost(ipAddress + server)
+		if err == nil {
+			return true
+		}
+	}
+	return false
+}
+
 var defaultAddr = "invalid@addr"
 
 func sanitizeAddr(dirty string) string {
-	re := regexp.MustCompile("(MAIL|RCPT) (FROM|TO):.*<([a-zA-Z0-9.-_@]+)>")
+	re := regexp.MustCompile("(MAIL|RCPT) (FROM|TO|From|To):.*<([^>]+)>")
 	subs := re.FindAllStringSubmatch(dirty, 1)
 	if subs != nil && len(subs) > 0 && len(subs[0]) == 4 && len(subs[0][3]) > 0 {
-		return subs[0][3]
+		re = regexp.MustCompile("[^a-zA-Z0-9@]+")
+		addr := subs[0][3]
+		return re.ReplaceAllString(addr, ".")
 	} else {
 		return defaultAddr
 	}
 }
 
-func copyFileContents(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	_, err = io.Copy(out, in)
-	cerr := out.Close()
-	if err != nil {
-		return err
-	}
-	return cerr
-}
-
-var messageNameFormat = "/srv/http/maildump/%s->%s-%v.txt"
+var messageNameFormat = "/srv/http/maildump/%v-%v-%v.txt"
 
 func handleConn(conn net.Conn) {
 	defer conn.Close()
+
+	if isSpammerAddr(conn.RemoteAddr()) {
+		fmt.Printf("discarding mail from %v\n", conn.RemoteAddr())
+		return
+	}
 
 	output, err := ioutil.TempFile("/tmp", "maildump")
 	if err != nil {
@@ -140,8 +145,8 @@ func handleConn(conn net.Conn) {
 		return
 	}
 
-	var fromAddr = defaultAddr
 	var toAddr = defaultAddr
+	remoteIP := toIPAddress(conn.RemoteAddr())
 
 	_, err = conn.Write([]byte("220 mail.lf.lc ESMTP dumptruck\n"))
 	if err != nil {
@@ -169,7 +174,6 @@ CommandParse:
 			cmd := replyCommand(conn, data)
 			switch cmd {
 			case CommandMail:
-				fromAddr = sanitizeAddr(data)
 				break
 			case CommandRcpt:
 				toAddr = sanitizeAddr(data)
@@ -190,12 +194,9 @@ CommandParse:
 		fmt.Println(err)
 		return
 	}
-	if stats.Size() > 0 {
-		messageName := fmt.Sprintf(messageNameFormat, fromAddr, toAddr, time.Now().Unix())
-		err = copyFileContents(output.Name(), messageName)
-		if err != nil {
-			fmt.Println(err)
-		}
+	if stats.Size() > 50 {
+		messageName := fmt.Sprintf(messageNameFormat, toAddr, remoteIP, time.Now().Unix())
+		os.Rename(output.Name(), messageName)
 	}
 }
 
