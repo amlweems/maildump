@@ -5,6 +5,7 @@ import "fmt"
 import "log"
 import "strings"
 import "regexp"
+import "io"
 import "io/ioutil"
 import "os"
 import "time"
@@ -129,6 +130,25 @@ func sanitizeAddr(dirty string) string {
 	}
 }
 
+func copyFileContents(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	cerr := out.Close()
+	if err != nil {
+		return err
+	}
+	return cerr
+}
+
 var messageNameFormat = "/srv/http/maildump/%v-%v-%v.txt"
 
 func handleConn(conn net.Conn) {
@@ -137,6 +157,8 @@ func handleConn(conn net.Conn) {
 	if isSpammerAddr(conn.RemoteAddr()) {
 		fmt.Printf("discarding mail from %v\n", conn.RemoteAddr())
 		return
+	} else {
+		fmt.Printf("receiving mail from %v\n", conn.RemoteAddr())
 	}
 
 	output, err := ioutil.TempFile("/tmp", "maildump")
@@ -196,7 +218,10 @@ CommandParse:
 	}
 	if stats.Size() > 50 {
 		messageName := fmt.Sprintf(messageNameFormat, toAddr, remoteIP, time.Now().Unix())
-		os.Rename(output.Name(), messageName)
+		err = copyFileContents(output.Name(), messageName)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 }
 
