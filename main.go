@@ -166,6 +166,8 @@ func handleConn(conn net.Conn) {
 		fmt.Println(err)
 		return
 	}
+	defer output.Close()
+	defer os.Remove(output.Name())
 
 	var toAddr = defaultAddr
 	remoteIP := toIPAddress(conn.RemoteAddr())
@@ -221,6 +223,7 @@ CommandParse:
 		err = copyFileContents(output.Name(), messageName)
 		if err != nil {
 			fmt.Println(err)
+			return
 		}
 	}
 }
