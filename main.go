@@ -3,6 +3,8 @@ package main
 import "net"
 import "fmt"
 import "log"
+import "flag"
+import "path"
 import "strings"
 import "regexp"
 import "io"
@@ -149,7 +151,7 @@ func copyFileContents(src, dst string) error {
 	return cerr
 }
 
-var messageNameFormat = "/srv/http/maildump/%v-%v-%v.txt"
+var messageNameFormat = "%v-%v-%v.txt"
 
 func handleConn(conn net.Conn) {
 	defer conn.Close()
@@ -220,7 +222,8 @@ CommandParse:
 	}
 	if stats.Size() > 50 {
 		messageName := fmt.Sprintf(messageNameFormat, toAddr, remoteIP, time.Now().Unix())
-		err = copyFileContents(output.Name(), messageName)
+		mailPath := path.Join(outputDirectory, messageName)
+		err = copyFileContents(output.Name(), mailPath)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -228,12 +231,24 @@ CommandParse:
 	}
 }
 
+var outputDirectory string
+var listeningPort string
+
 func main() {
-	ln, err := net.Listen("tcp", ":25")
+	flag.StringVar(&outputDirectory, "output", "/srv/http/maildump", "output directory for mail")
+	flag.StringVar(&listeningPort, "port", ":25", "listening port")
+	flag.Parse()
+
+	err := os.MkdirAll(outputDirectory, 0400)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Listening on port 25")
+
+	ln, err := net.Listen("tcp", listeningPort)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Listening on", listeningPort)
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
