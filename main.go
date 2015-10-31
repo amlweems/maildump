@@ -156,7 +156,7 @@ var messageNameFormat = "%v-%v-%v.txt"
 func handleConn(conn net.Conn) {
 	defer conn.Close()
 
-	if isSpammerAddr(conn.RemoteAddr()) {
+	if spamDetection && isSpammerAddr(conn.RemoteAddr()) {
 		fmt.Printf("discarding mail from %v\n", conn.RemoteAddr())
 		return
 	} else {
@@ -233,10 +233,12 @@ CommandParse:
 
 var outputDirectory string
 var listeningPort string
+var spamDetection bool
 
 func main() {
 	flag.StringVar(&outputDirectory, "output", "/srv/http/maildump", "output directory for mail")
 	flag.StringVar(&listeningPort, "port", ":25", "listening port")
+	flag.BoolVar(&spamDetection, "spam", true, "perform spam detection")
 	flag.Parse()
 
 	err := os.MkdirAll(outputDirectory, 0400)
@@ -249,6 +251,8 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("Listening on", listeningPort)
+	fmt.Println("Spam detection: ", spamDetection)
+	fmt.Println("Output directory: ", outputDirectory)
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
