@@ -101,11 +101,19 @@ func replyCommand(conn net.Conn, line string) Command {
 }
 
 func toIPAddress(addr net.Addr) string {
-	ipAddress := strings.Split(addr.String(), ":")
-	return ipAddress[0]
+	ipAddress := strings.Split(addr.String(), ":")[0]
+	dots := strings.Split(ipAddress, ".")
+
+	/* https://stackoverflow.com/questions/34816489/reverse-slice-of-strings */
+	last := len(dots) - 1
+	for i := 0; i < len(dots)/2; i++ {
+		dots[i], dots[last-i] = dots[last-i], dots[i]
+	}
+
+	return strings.Join(dots, ".")
 }
 
-var serverBlocklist = []string{".zen.spamhaus.org", ".bl.spamcop.net"}
+var serverBlocklist = []string{".zen.spamhaus.org", ".bl.spamcop.net", ".b.barracudacentral.org", ".dnsbl.sorbs.net"}
 
 func isSpammerAddr(addr net.Addr) bool {
 	ipAddress := toIPAddress(addr)
