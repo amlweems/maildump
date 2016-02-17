@@ -86,7 +86,7 @@ func readCommand(conn net.Conn, buf []byte) (int, error) {
 func replyCommand(conn net.Conn, line string) Command {
 	line = strings.TrimSpace(line)
 	args := strings.Split(line, " ")
-	cmd, exists := commandTable[args[0]]
+	cmd, exists := commandTable[strings.ToUpper(args[0])]
 	if exists {
 		reply, exists := replyTable[cmd]
 		if exists {
