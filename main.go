@@ -100,23 +100,10 @@ func replyCommand(conn net.Conn, line string) Command {
 	return cmd
 }
 
-func toIPAddress(addr net.Addr) string {
-	ipAddress := strings.Split(addr.String(), ":")[0]
-	dots := strings.Split(ipAddress, ".")
-
-	/* https://stackoverflow.com/questions/34816489/reverse-slice-of-strings */
-	last := len(dots) - 1
-	for i := 0; i < len(dots)/2; i++ {
-		dots[i], dots[last-i] = dots[last-i], dots[i]
-	}
-
-	return strings.Join(dots, ".")
-}
-
 var serverBlocklist = []string{".zen.spamhaus.org", ".bl.spamcop.net", ".b.barracudacentral.org", ".dnsbl.sorbs.net"}
 
 func isSpammerAddr(addr net.Addr) bool {
-	ipAddress := toIPAddress(addr)
+	ipAddress, _, _ := net.SplitHostPort(addr.String())
 	for _, server := range serverBlocklist {
 		_, err := net.LookupHost(ipAddress + server)
 		if err == nil {
@@ -180,7 +167,7 @@ func handleConn(conn net.Conn) {
 	defer os.Remove(output.Name())
 
 	var toAddr = defaultAddr
-	remoteIP := toIPAddress(conn.RemoteAddr())
+	remoteIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 
 	_, err = conn.Write([]byte("220 mail.lf.lc ESMTP dumptruck\n"))
 	if err != nil {
